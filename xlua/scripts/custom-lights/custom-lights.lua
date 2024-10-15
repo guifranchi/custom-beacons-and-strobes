@@ -1,5 +1,5 @@
 -- Daniel Gallacher 2020 - Public domain
--- custom-lights.lua for Customisable 
+-- custom-lights.lua for Customisable
 
 -- Strobe Pattern and Times
 -- pattern_length should be automatically determined from table.getn(strobe_time_between) or #strobe_time_between but both values are returning 0
@@ -47,6 +47,48 @@ beacon_brightness_ratio_2 = find_dataref("sim/flightmodel2/lights/beacon_brightn
 beacon_brightness_ratio_3 = find_dataref("sim/flightmodel2/lights/beacon_brightness_ratio[2]")
 beacon_brightness_ratio_4 = find_dataref("sim/flightmodel2/lights/beacon_brightness_ratio[3]")
 
+
+-- Custom Datarefs
+create_dataref("XCrafts/lights/long_strobe_brightness_ratio", "number")
+create_dataref("XCrafts/lights/long_beacon_brightness_ratio", "number")
+
+-- Find necessary datarefs
+eicas_timer = find_dataref("XCrafts/ERJ/EICAS_timer")
+strobe_switch = find_dataref("sim/cockpit2/switches/strobe_lights_on")
+beacon_switch = find_dataref("sim/cockpit2/switches/beacon_on")
+
+internal_timer = 0
+strobe_interval = 1.0  -- 1000 ms
+strobe_on_duration = 0.36  -- 360 ms
+beacon_delay = 0.68  -- 680 ms
+
+
+function update_strobe()
+    if eicas_timer > 0 and strobe_switch == 1 then
+        local strobe_time = internal_timer % (strobe_interval + strobe_on_duration)
+        if strobe_time < strobe_on_duration then
+            XCrafts_lights_long_strobe_brightness_ratio = 1
+        else
+            XCrafts_lights_long_strobe_brightness_ratio = 0
+        end
+    else
+        XCrafts_lights_long_strobe_brightness_ratio = 0
+    end
+end
+
+function update_beacon()
+    if eicas_timer > 0 and beacon_switch == 1 then
+        local beacon_time = (internal_timer + beacon_delay) % (strobe_interval + strobe_on_duration)
+        if beacon_time < strobe_on_duration then
+            XCrafts_lights_long_beacon_brightness_ratio = 1
+        else
+            XCrafts_lights_long_beacon_brightness_ratio = 0
+        end
+    else
+        XCrafts_lights_long_beacon_brightness_ratio = 0
+    end
+end
+
 -- Sim Callbacks
 function flight_start()
 end
@@ -55,6 +97,7 @@ function flight_crash()
 end
 
 function before_physics() -- Per Frame#
+    -- Existing logic for other lights
     if switch_strobe_lights_on == 1 then
         if internal_timer > next_strobe_on_time then
             strobe_brightness_ratio_1 = 1
@@ -112,6 +155,8 @@ end
 function after_physics() -- Per Frame
     -- log an internal timer
     internal_timer = internal_timer + SIM_PERIOD
+    update_strobe()
+    update_beacon()    
 end
 
 function aircraft_load()
